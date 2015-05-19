@@ -23,6 +23,8 @@ def vagrant():
         vhost = line.split()[0]
         vms.append(vhost)
     start = datetime.datetime.utcnow()
+    # start at one to avoid div by zero and add grace period
+    num_valid_hosts = 1
     for vhost in vms:
         roledef = None
         if vhost.startswith("pub"):
@@ -31,20 +33,22 @@ def vagrant():
             roledef = 'sub'
         if vhost.startswith("nsq"):
             roledef = 'nsq'
-        vhost_addr = None
-        ip_result = fabric.api.local('vagrant ssh '+vhost+' -c "ifconfig eth1"', capture=True)
-        for line in ip_result.split("\n"):
-            if line.strip().startswith("inet addr"):
-                vhost_addr = line.strip()[len("inet addr:"):].split()[0]
-                id_result = fabric.api.local('vagrant ssh-config '+vhost+'| grep IdentityFile', capture=True)
-                id_file = id_result.split()[1]
-                if roledef is not None:
-                    fabric.api.env.roledefs[roledef]['hosts'].append(vhost_addr)
-                    fabric.api.env.roledefs[roledef]['key_filename'].append(id_file)
-                break
+        if roledef is not None:
+            num_valid_hosts += 1
+            vhost_addr = None
+            ip_result = fabric.api.local('vagrant ssh '+vhost+' -c "ifconfig eth1"', capture=True)
+            for line in ip_result.split("\n"):
+                if line.strip().startswith("inet addr"):
+                    vhost_addr = line.strip()[len("inet addr:"):].split()[0]
+                    id_result = fabric.api.local('vagrant ssh-config '+vhost+'| grep IdentityFile', capture=True)
+                    id_file = id_result.split()[1]
+                    if vhost_addr is not None:
+                        fabric.api.env.roledefs[roledef]['hosts'].append(vhost_addr)
+                        fabric.api.env.roledefs[roledef]['key_filename'].append(id_file)
+                    break
     end = datetime.datetime.utcnow()
     duration = 10
-    overhead = end - start
+    overhead = (end - start) / num_valid_hosts
     deadline = end + overhead
     DEADLINE_FMT = '%Y-%m-%d %H:%M:%S'
     fabric.api.env['writer_args'] = [
@@ -65,7 +69,8 @@ def vagrant():
         '-rdy', str(2500),
     ]
     fabric.api.env['collate_args'] = {
-        'wait_until': deadline + datetime.timedelta(seconds=duration),
+        'wait_until': deadline,
+        'wait_duration': datetime.timedelta(seconds=duration+overhead.total_seconds()),
     }
 
 
@@ -98,9 +103,13 @@ def reader():
 @fabric.decorators.parallel
 @fabric.decorators.roles('pub', 'sub')
 def wait():
+    now = datetime.datetime.utcnow()
     wait_until = fabric.api.env['collate_args']['wait_until']
-    wait_seconds = (wait_until - datetime.datetime.utcnow()).total_seconds()
-    print "waiting estimated time of %d seconds for nohup process to stop." % wait_seconds
+    wait_duration = fabric.api.env['collate_args']['wait_duration']
+    if now < wait_until:
+        wait_duration += (wait_until - now)
+    wait_seconds = wait_duration.total_seconds()
+    print "waiting duration time of %d seconds for nohup process to complete." % wait_seconds
     time.sleep(wait_seconds)
 
 
