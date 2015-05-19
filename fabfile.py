@@ -6,8 +6,8 @@ fabfile.py used to to run nsq benchmarks
 """
 import datetime
 import fabric
-import pprint
 import time
+
 
 def vagrant():
     # find hosts
@@ -32,8 +32,7 @@ def vagrant():
         if vhost.startswith("nsq"):
             roledef = 'nsq'
         vhost_addr = None
-        sync_time_hack = "sudo ntpdate time.nist.gov;"
-        ip_result = fabric.api.local('vagrant ssh '+vhost+' -c "'+sync_time_hack+'ifconfig eth1"', capture=True)
+        ip_result = fabric.api.local('vagrant ssh '+vhost+' -c "ifconfig eth1"', capture=True)
         for line in ip_result.split("\n"):
             if line.strip().startswith("inet addr"):
                 vhost_addr = line.strip()[len("inet addr:"):].split()[0]
@@ -42,14 +41,11 @@ def vagrant():
                 if roledef is not None:
                     fabric.api.env.roledefs[roledef]['hosts'].append(vhost_addr)
                     fabric.api.env.roledefs[roledef]['key_filename'].append(id_file)
-                break;
+                break
     end = datetime.datetime.utcnow()
     duration = 10
     overhead = end - start
     deadline = end + overhead
-    pprint.pprint(end)
-    pprint.pprint(overhead)
-    pprint.pprint(datetime.timedelta(seconds=duration))
     DEADLINE_FMT = '%Y-%m-%d %H:%M:%S'
     fabric.api.env['writer_args'] = [
         '-batch-size', str(200),
@@ -71,39 +67,45 @@ def vagrant():
     fabric.api.env['collate_args'] = {
         'wait_until': deadline + datetime.timedelta(seconds=duration),
     }
-    #print "vagrant ssh overhead time:", overhead
-    #pprint.pprint(fabric.api.env.user)
-    #pprint.pprint(fabric.api.env.hosts)
-    #pprint.pprint(fabric.api.env.key_filename)
+
+
+@fabric.decorators.parallel
+@fabric.decorators.roles('nsq', 'pub', 'sub')
+def sync_clock():
+    fabric.api.env.hosts = fabric.api.env.roledefs['nsq']['hosts'] + fabric.api.env.roledefs['pub']['hosts'] + fabric.api.env.roledefs['sub']['hosts']
+    fabric.api.env.key_filename = fabric.api.env.roledefs['nsq']['key_filename'] + fabric.api.env.roledefs['pub']['key_filename'] + fabric.api.env.roledefs['sub']['key_filename']
+    fabric.api.sudo("ntpdate time.nist.gov")
+
 
 @fabric.decorators.parallel
 @fabric.decorators.roles('pub')
 def writer():
     fabric.api.env.hosts = fabric.api.env.roledefs['pub']['hosts']
     fabric.api.env.key_filename = fabric.api.env.roledefs['pub']['key_filename']
-    nsqd_ip = fabric.api.env.roledefs['nsq']['hosts'][0] 
     args = " ".join(fabric.api.env['writer_args'])
-    # this sleep is really ugly and is not necessary in bash but the run command does not work with out it
     fabric.api.run("nohup /nsq/bench/bench_writer/bench_writer "+args+" &> /tmp/bench.txt < /dev/null &", pty=False)
+
 
 @fabric.decorators.parallel
 @fabric.decorators.roles('sub')
 def reader():
-    #fabric.api.env.hosts = fabric.api.env.roledefs['sub']['hosts']
-    #fabric.api.env.key_filename = fabric.api.env.roledefs['sub']['key_filename']
     fabric.api.env.hosts = fabric.api.env.roledefs['sub']['hosts']
     fabric.api.env.key_filename = fabric.api.env.roledefs['sub']['key_filename']
     args = " ".join(fabric.api.env['reader_args'])
-    # this sleep is really ugly and is not necessary in bash but the run command does not work with out it
     fabric.api.run("nohup /nsq/bench/bench_reader/bench_reader "+args+" &> /tmp/bench.txt < /dev/null &", pty=False)
+
+
+@fabric.decorators.parallel
+@fabric.decorators.roles('pub', 'sub')
+def wait():
+    wait_until = fabric.api.env['collate_args']['wait_until']
+    wait_seconds = (wait_until - datetime.datetime.utcnow()).total_seconds()
+    print "waiting estimated time of %d seconds for nohup process to stop." % wait_seconds
+    time.sleep(wait_seconds)
+
 
 @fabric.decorators.roles('pub', 'sub')
 def collate():
-    wait_until = fabric.api.env['collate_args']['wait_until']
-    wait_seconds = (wait_until - datetime.datetime.utcnow()).total_seconds()
-    print "sleeping %d seconds:" % wait_seconds
-    #time.sleep(wait_seconds)
     fabric.api.env.hosts = fabric.api.env.roledefs['pub']['hosts'] + fabric.api.env.roledefs['sub']['hosts']
     fabric.api.env.key_filename = fabric.api.env.roledefs['pub']['key_filename'] + fabric.api.env.roledefs['sub']['key_filename']
     fabric.api.run("cat /tmp/bench.txt")
-
