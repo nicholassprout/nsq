@@ -8,7 +8,6 @@ import datetime
 import fabric
 import time
 
-@fabric.decorators.task
 def vagrant():
     # find hosts
     status_result = fabric.api.local('vagrant status|grep running', capture=True)
@@ -76,7 +75,6 @@ def vagrant():
 
 @fabric.decorators.parallel
 @fabric.decorators.roles('nsq', 'pub', 'sub')
-@fabric.decorators.task
 def sync_clock():
     fabric.api.env.hosts = fabric.api.env.roledefs['nsq']['hosts'] + fabric.api.env.roledefs['pub']['hosts'] + fabric.api.env.roledefs['sub']['hosts']
     fabric.api.env.key_filename = fabric.api.env.roledefs['nsq']['key_filename'] + fabric.api.env.roledefs['pub']['key_filename'] + fabric.api.env.roledefs['sub']['key_filename']
@@ -85,7 +83,6 @@ def sync_clock():
 
 @fabric.decorators.parallel
 @fabric.decorators.roles('pub')
-@fabric.decorators.task
 def writer():
     fabric.api.env.hosts = fabric.api.env.roledefs['pub']['hosts']
     fabric.api.env.key_filename = fabric.api.env.roledefs['pub']['key_filename']
@@ -95,7 +92,6 @@ def writer():
 
 @fabric.decorators.parallel
 @fabric.decorators.roles('sub')
-@fabric.decorators.task
 def reader():
     fabric.api.env.hosts = fabric.api.env.roledefs['sub']['hosts']
     fabric.api.env.key_filename = fabric.api.env.roledefs['sub']['key_filename']
@@ -117,7 +113,6 @@ def wait():
 
 
 @fabric.decorators.roles('pub', 'sub')
-@fabric.decorators.task
 def collate():
     fabric.api.env.hosts = fabric.api.env.roledefs['pub']['hosts'] + fabric.api.env.roledefs['sub']['hosts']
     fabric.api.env.key_filename = fabric.api.env.roledefs['pub']['key_filename'] + fabric.api.env.roledefs['sub']['key_filename']

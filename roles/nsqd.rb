@@ -7,7 +7,7 @@ run_list(
 override_attributes(
     nsq: {
         nsqd: {
-            lookupd_tcp_address: '172.28.128.3'
+            lookupd_tcp_address: ['172.28.128.3']
         }
     }
 )

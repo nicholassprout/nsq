@@ -41,8 +41,13 @@ clean:
 	rm -fr $(BLDDIR)
 
 .PHONY: install clean all
+.PHONY: vbench
 .PHONY: $(BINARIES)
 .PHONY: $(APPS)
+
+vbench:
+	vagrant up
+	fab vagrant sync_clock writer reader wait collate
 
 install: $(BINARIES) $(EXAMPLES)
 	install -m 755 -d ${DESTDIR}${BINDIR}
@@ -56,3 +61,4 @@ install: $(BINARIES) $(EXAMPLES)
 	install -m 755 $(BLDDIR)/apps/nsq_tail ${DESTDIR}${BINDIR}/nsq_tail
 	install -m 755 $(BLDDIR)/apps/nsq_stat ${DESTDIR}${BINDIR}/nsq_stat
 	install -m 755 $(BLDDIR)/apps/to_nsq ${DESTDIR}${BINDIR}/to_nsq
+

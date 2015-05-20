@@ -14,7 +14,7 @@ default_attributes(
 override_attributes(
     nsq: {
         nsqadmin: {
-            lookupd_tcp_address: '172.28.128.3'
+            lookupd_tcp_address: ['172.28.128.3']
         }
     }
 )
