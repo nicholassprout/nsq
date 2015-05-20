@@ -55,13 +55,13 @@ def vagrant():
         '-deadline', "'"+deadline.strftime(DEADLINE_FMT)+"'",
         '-nsqd-tcp-address', fabric.api.env.roledefs['nsq']['hosts'][0]+":4150",
         '-runfor', str(duration)+'s',
-        '-size', str(200),
+        '-size', str(600),
         '-topic', "sub_bench",
     ]
     fabric.api.env['reader_args'] = [
         '-runfor', str(duration)+'s',
         '-nsqd-tcp-address', fabric.api.env.roledefs['nsq']['hosts'][0]+":4150",
-        '-size', str(200),
+        '-size', str(600),
         '-topic', "sub_bench",
         '-channel', "ch",
         '-deadline', "'"+deadline.strftime(DEADLINE_FMT)+"'",
