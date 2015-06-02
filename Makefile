@@ -41,9 +41,13 @@ clean:
 	rm -fr $(BLDDIR)
 
 .PHONY: install clean all
+.PHONY: rbench
 .PHONY: vbench
 .PHONY: $(BINARIES)
 .PHONY: $(APPS)
+
+rbench:
+	fab -H $(HOSTS) rackspace:$(USER),$(NSQD) writer reader wait collate
 
 vbench:
 	vagrant up

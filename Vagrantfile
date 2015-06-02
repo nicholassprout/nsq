@@ -4,8 +4,8 @@
 
 #NSQ_NUM_DAE_HOSTS=ENV['NSQ_NUM_DAE_HOSTS']
 NSQ_NUM_DAE_HOSTS=1
-NSQ_NUM_PUB_HOSTS=2
-NSQ_NUM_SUB_HOSTS=2
+NSQ_NUM_PUB_HOSTS=1
+NSQ_NUM_SUB_HOSTS=1
 NSQ_JSON = {
   "run_list" => [
     "role[vagrant]",
@@ -48,7 +48,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       pubh.vm.hostname = "pub#{i}"
       pubh.vm.box = "ubuntu/trusty64"
       pubh.vm.network "private_network", type: "dhcp"
-      config.vm.synced_folder ".", "/nsq"
+      config.vm.synced_folder "./bench", "/home/vagrant/bench"
       config.vm.provision "chef_solo" do |chef|
         # Force chef 11
         chef.version = "11.14.2"
@@ -65,7 +65,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       subh.vm.hostname = "sub#{i}"
       subh.vm.box = "ubuntu/trusty64"
       subh.vm.network "private_network", type: "dhcp"
-      config.vm.synced_folder ".", "/nsq"
+      config.vm.synced_folder "./bench", "/home/vagrant/bench"
       config.vm.provision "chef_solo" do |chef|
         # Force chef 11
         chef.version = "11.14.2"
